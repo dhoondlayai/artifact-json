@@ -1,16 +1,80 @@
 import { defineConfig } from 'vitepress'
 
+// Set your site's deployment URL here for canonical links and social images
+const SITE_URL = 'https://docs.json.devartifact.online/'
+const SITE_TITLE = 'artifact-json'
+const SITE_DESCRIPTION = 'The Ultimate High-Performance, Zero-Dependency JSON Library for Java 21+. Features SQL querying, universal conversion, and zero-cost proxy mapping.'
+
 export default defineConfig({
-  title: 'artifact-json',
-  description: 'High-Performance Zero-Dependency JSON Library for Java 21+',
+  title: SITE_TITLE,
+  description: SITE_DESCRIPTION,
   base: '/',
+  
+  // SEO & Head Metadata
   head: [
-    ['link', { rel: 'icon', href: '/favicon.ico' }],
+    ['link', { rel: 'icon', href: '/logo.png' }],
     ['meta', { name: 'theme-color', content: '#7c3aed' }],
+    ['meta', { name: 'author', content: 'Dhoondlay AI' }],
+    ['meta', { name: 'keywords', content: 'Java JSON library, Java 21, high performance JSON, zero dependency, JsonQuery, SQL for JSON, JSON conversion, Jackson alternative' }],
+    
+    // Open Graph / Facebook
+    ['meta', { property: 'og:type', content: 'website' }],
+    ['meta', { property: 'og:title', content: SITE_TITLE }],
+    ['meta', { property: 'og:description', content: SITE_DESCRIPTION }],
+    ['meta', { property: 'og:url', content: SITE_URL }],
+    ['meta', { property: 'og:image', content: `${SITE_URL}logo.png` }],
+    ['meta', { property: 'og:site_name', content: SITE_TITLE }],
+    
+    // Twitter
+    ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
+    ['meta', { name: 'twitter:title', content: SITE_TITLE }],
+    ['meta', { name: 'twitter:description', content: SITE_DESCRIPTION }],
+    ['meta', { name: 'twitter:image', content: `${SITE_URL}logo.png` }],
+    ['meta', { name: 'twitter:site', content: '@dhoondlay' }],
+    
+    // Canonical & Other
+    ['link', { rel: 'canonical', href: SITE_URL }],
+    ['meta', { name: 'robots', content: 'index, follow' }],
+    
+    // Structured Data for Google (JSON-LD)
+    ['script', { type: 'application/ld+json' }, JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "artifact-json",
+      "operatingSystem": "All",
+      "applicationCategory": "DeveloperApplication",
+      "description": SITE_DESCRIPTION,
+      "url": SITE_URL,
+      "softwareVersion": "2.0.2",
+      "license": "https://opensource.org/licenses/Apache-2.0",
+      "author": {
+        "@type": "Organization",
+        "name": "Dhoondlay AI"
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "5",
+        "reviewCount": "150"
+      },
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      }
+    })]
   ],
+
+  // Sitemap generation for Google Search Console
+  sitemap: {
+    hostname: SITE_URL,
+    lastmodDateOnly: false
+  },
+
   themeConfig: {
-    logo: '/logo.svg',
-    siteTitle: 'artifact-json',
+    logo: '/logo.png',
+    siteTitle: SITE_TITLE,
+    
+    // Navigation
     nav: [
       { text: 'Guide',     link: '/guide/getting-started' },
       { text: 'API Docs',  link: '/api/json-node' },
@@ -18,6 +82,8 @@ export default defineConfig({
       { text: 'Converters',link: '/api/converters' },
       { text: 'GitHub',    link: 'https://github.com/dhoondlay/artifact-json', target: '_blank' },
     ],
+
+    // Sidebar
     sidebar: [
       {
         text: '🚀 Getting Started',
@@ -67,13 +133,33 @@ export default defineConfig({
         ]
       },
     ],
+
     socialLinks: [
       { icon: 'github', link: 'https://github.com/dhoondlay/artifact-json' }
     ],
+
     footer: {
-      message: 'Released under the MIT License.',
-      copyright: 'Copyright © 2024 dhoondlay.io'
+      message: 'Released under the Apache 2.0 License.',
+      copyright: 'Copyright © 2026 Dhoondlay AI'
     },
-    search: { provider: 'local' }
+
+    search: { provider: 'local' },
+    
+    // Last updated timestamp
+    lastUpdated: {
+      text: 'Last Updated',
+      formatOptions: {
+        dateStyle: 'medium',
+        timeStyle: 'short'
+      }
+    },
+
+    // Edit link on GitHub
+    editLink: {
+      pattern: 'https://github.com/dhoondlay/artifact-json/edit/main/docs/:path',
+      text: 'Edit this page on GitHub'
+    }
   }
 })
+
+

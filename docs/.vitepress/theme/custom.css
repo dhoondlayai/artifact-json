@@ -1,0 +1,57 @@
+:root {
+  --vp-c-brand-1: #9333ea;
+  --vp-c-brand-2: #7c3aed;
+  --vp-c-brand-3: #6d28d9;
+  --vp-c-brand-soft: rgba(124, 58, 237, 0.14);
+}
+
+.VPNav {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background-color: var(--vp-nav-bg-color) !important;
+}
+
+.VPFeature {
+  transition: all 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
+  border: 1px solid var(--vp-c-border);
+  background-color: var(--vp-c-bg-soft);
+}
+
+.VPFeature:hover {
+  transform: translateY(-4px);
+  border-color: var(--vp-c-brand-1);
+  box-shadow: 0 10px 30px -10px var(--vp-c-brand-soft);
+}
+
+.VPHero .name {
+  background: linear-gradient(135deg, #9333ea 0%, #3b82f6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 800;
+}
+
+.VPHero .image-bg {
+  background: radial-gradient(circle, var(--vp-c-brand-soft) 0%, transparent 70%);
+}
+
+/* Smooth code block transitions */
+.vp-code-group {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--vp-c-divider);
+}
+
+/* Custom scrollbar for premium feel */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--vp-c-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--vp-c-brand-3);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--vp-c-brand-1);
+}

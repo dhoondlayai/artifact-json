@@ -118,19 +118,19 @@ jobs:
           CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
-      - name: Commit and Push Version Bump
-        run: |
-          git add pom.xml
-          # Only commit if there are changes
-          if ! git diff --cached --quiet; then
-            git commit -m "chore: release v${{ env.NEW_VERSION }} [skip ci]"
-            # Rebase onto main to avoid conflicts and push
-            git pull origin main --rebase
-            git push origin HEAD:main
-          fi
-          # Tag and push tags separately to ensure they apply to the new commit
-          git tag -f v${{ env.NEW_VERSION }}
-          git push origin --tags --force
+      # - name: Commit and Push Version Bump
+      #   run: |
+      #     git add pom.xml
+      #     # Only commit if there are changes
+      #     if ! git diff --cached --quiet; then
+      #       git commit -m "chore: release v${{ env.NEW_VERSION }} [skip ci]"
+      #       # Rebase onto main to avoid conflicts and push
+      #       git pull origin main --rebase
+      #       git push origin HEAD:main
+      #     fi
+      #     # Tag and push tags separately to ensure they apply to the new commit
+      #     git tag -f v${{ env.NEW_VERSION }}
+      #     git push origin --tags --force
 
   deploy-docs:
     needs: release

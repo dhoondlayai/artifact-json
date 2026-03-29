@@ -9,7 +9,7 @@ Security features run deep in `artifact-json`. If you have enterprise security c
 Crucially, **the original JSON Tree is never mutated**. It generates a completely new, safe tree.
 
 ```java
-import io.dhoondlay.artifact.json.extensions.JsonMasker;
+import io.github.dhoondlayai.artifact.json.extensions.JsonMasker;
 
 JsonMasker masker = new JsonMasker("[REDACTED]")
     .addSensitiveKey("password")

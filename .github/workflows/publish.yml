@@ -3,7 +3,10 @@ name: Publish to Maven Central
 on:
   push:
     branches:
-      - develop
+      - main
+
+permissions:
+  contents: write
 
 jobs:
   publish:
@@ -12,6 +15,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -19,10 +24,46 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
           server-id: central
-          server-username: CENTRAL_USERNAME
-          server-password: CENTRAL_PASSWORD
+          server-username: ${{ secrets.CENTRAL_USERNAME }}
+          server-password: ${{ secrets.CENTRAL_PASSWORD }}
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
           gpg-passphrase: ${{ secrets.GPG_PASSPHRASE }}
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Increment Version
+        run: |
+          # Get current version from pom.xml
+          RAW_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          # Strip -SNAPSHOT if present
+          CURRENT_VERSION=${RAW_VERSION%-SNAPSHOT}
+          echo "Current version (baseline): $CURRENT_VERSION"
+          
+          # Increment patch version (assuming x.y.z format)
+          if [[ $CURRENT_VERSION =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            MAJOR=${BASH_REMATCH[1]}
+            MINOR=${BASH_REMATCH[2]}
+            PATCH=${BASH_REMATCH[3]}
+            PATCH=$((PATCH + 1))
+            NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+          else
+            echo "Version format not recognized, appending .1"
+            NEW_VERSION="${CURRENT_VERSION}.1"
+          fi
+          
+          echo "New version: $NEW_VERSION"
+          mvn versions:set -DnewVersion=$NEW_VERSION -DgenerateBackupPoms=false
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+
+      - name: Commit and Push Version Bump
+        run: |
+          git add pom.xml
+          git commit -m "chore: bump version to ${{ env.NEW_VERSION }} [skip ci]"
+          git tag v${{ env.NEW_VERSION }}
+          git push origin main --tags
 
       - name: Publish to Maven Central Portal
         run: mvn clean deploy -Prelease -DskipTests -Dgpg.passphrase=${{ secrets.GPG_PASSPHRASE }}

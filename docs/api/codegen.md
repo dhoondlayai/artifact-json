@@ -9,9 +9,9 @@ You no longer need to jump to an external website to stub out your DTOs!
 ## Generating Java Records
 
 ```java
-import io.dhoondlay.artifact.json.codegen.JsonCodeGenerator;
-import io.dhoondlay.artifact.json.streaming.FastJsonEngine;
-import io.dhoondlay.artifact.json.model.JsonNode;
+import io.github.dhoondlayai.artifact.json.codegen.JsonCodeGenerator;
+import io.github.dhoondlayai.artifact.json.streaming.FastJsonEngine;
+import io.github.dhoondlayai.artifact.json.model.JsonNode;
 
 String json = """
 {

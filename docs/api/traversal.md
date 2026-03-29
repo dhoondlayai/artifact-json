@@ -5,7 +5,7 @@
 Safe, iterative, non-recursive tree traversal — handles 10,000+ level nesting.
 
 ```java
-import io.dhoondlay.artifact.json.model.JsonTraversal;
+import io.github.dhoondlayai.artifact.json.model.JsonTraversal;
 ```
 
 ### DFS (Depth-First)

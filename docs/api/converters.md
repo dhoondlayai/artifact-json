@@ -4,7 +4,7 @@
 All conversions are **zero-dependency** — no external libraries required.
 
 ```java
-import io.dhoondlay.artifact.json.convert.JsonConverter;
+import io.github.dhoondlayai.artifact.json.convert.JsonConverter;
 ```
 
 ## JSON → String (Pretty / Compact / Minified)

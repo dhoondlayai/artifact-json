@@ -6,8 +6,8 @@ written in 100% pure Java 21.
 ## Basic Usage
 
 ```java
-import io.dhoondlay.artifact.json.streaming.FastJsonEngine;
-import io.dhoondlay.artifact.json.model.*;
+import io.github.dhoondlayai.artifact.json.streaming.FastJsonEngine;
+import io.github.dhoondlayai.artifact.json.model.*;
 
 // Parse from String
 JsonNode root = FastJsonEngine.parse(jsonString);

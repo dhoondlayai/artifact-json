@@ -3,7 +3,7 @@
 artifact-json's mapper suite supports three native annotations for guiding Java POJO Serialization and Deserialization. These annotations require the `CustomObjectMapper` to take effect.
 
 ```java
-import io.dhoondlay.artifact.json.databind.CustomObjectMapper;
+import io.github.dhoondlayai.artifact.json.databind.CustomObjectMapper;
 ```
 
 ## @JsonProperty
@@ -41,7 +41,7 @@ public class SecurityProfile {
 Applies a universal naming strategy to **all** properties inside the class simultaneously. It eliminates the need to attach `@JsonProperty` individually to every single field!
 
 ```java
-import io.dhoondlay.artifact.json.annotation.JsonNaming;
+import io.github.dhoondlayai.artifact.json.annotation.JsonNaming;
 
 @JsonNaming(JsonNaming.NamingStrategy.SNAKE_CASE)
 public class StripePaymentResponse {

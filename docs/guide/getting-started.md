@@ -8,9 +8,9 @@ Add the single dependency to your `pom.xml`. There are **no transitive dependenc
 
 ```xml
 <dependency>
-    <groupId>io.dhoondlay.artifact</groupId>
+    <groupId>io.github.dhoondlayai</groupId>
     <artifactId>artifact-json</artifactId>
-    <version>2.0.0</version>
+    <version>2.0.2</version>
 </dependency>
 ```
 
@@ -19,8 +19,8 @@ Add the single dependency to your `pom.xml`. There are **no transitive dependenc
 ## Your First JSON Code
 
 ```java
-import io.dhoondlay.artifact.json.streaming.FastJsonEngine;
-import io.dhoondlay.artifact.json.model.*;
+import io.github.dhoondlayai.artifact.json.streaming.FastJsonEngine;
+import io.github.dhoondlayai.artifact.json.model.*;
 
 public class Main {
     public static void main(String[] args) {

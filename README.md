@@ -1,12 +1,13 @@
-# 💎 artifact-json: Master JSON Utility for Java 21+
+# 💎 artifact-json: High-Performance JSON Library for Java 21+
 
 [![Maven Central](https://img.shields.io/maven-central/v/io.github.dhoondlayai/artifact-json.svg?label=Maven%20Central)](https://search.maven.org/search?q=g:%22io.github.dhoondlayai%22%20AND%20a:%22artifact-json%22)
 [![Java Version](https://img.shields.io/badge/Java-21+-orange.svg)](https://www.oracle.com/java/technologies/downloads/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-A robust, enterprise-grade, **zero-dependency** Java 21+ library designed for maximum performance JSON processing, ultra-fast data transformation, and fluent querying.
+**artifact-json** is an enterprise-grade, **zero-dependency** JSON utility for the modern JVM (Java 21+). Optimized for maximum throughput and developer velocity, it offers ultra-fast data transformation, SQL-like JSON querying, and seamless multi-format conversion without the bloat of legacy frameworks.
 
 ---
+
 
 ## 🚀 Key Algorithms & Master Features
 

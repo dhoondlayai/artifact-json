@@ -1,0 +1,15 @@
+target/
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+node_modules/
+docs/.vitepress/dist/
+docs/.vitepress/cache/
+*.class
+*.jar
+*.war
+*.ear
+*.log
+.DS_Store

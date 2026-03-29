@@ -3,9 +3,9 @@ import { defineConfig } from 'vitepress'
 export default defineConfig({
   title: 'artifact-json',
   description: 'High-Performance Zero-Dependency JSON Library for Java 21+',
-  base: '/artifact-json/',
+  base: '/',
   head: [
-    ['link', { rel: 'icon', href: '/artifact-json/favicon.ico' }],
+    ['link', { rel: 'icon', href: '/favicon.ico' }],
     ['meta', { name: 'theme-color', content: '#7c3aed' }],
   ],
   themeConfig: {

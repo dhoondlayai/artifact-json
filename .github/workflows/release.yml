@@ -46,33 +46,52 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch --tags --force
 
       - name: Increment Version
         run: |
+          # Get current version from pom.xml
           RAW_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-          CURRENT_VERSION=${RAW_VERSION%-SNAPSHOT}
-          echo "Current version: $CURRENT_VERSION"
+          # Strip -SNAPSHOT if present
+          BASE_VERSION=${RAW_VERSION%-SNAPSHOT}
+          echo "Current version (baseline): $BASE_VERSION"
           
-          if [[ $CURRENT_VERSION =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
-            MAJOR=${BASH_REMATCH[1]}
-            MINOR=${BASH_REMATCH[2]}
-            PATCH=${BASH_REMATCH[3]}
-            PATCH=$((PATCH + 1))
-            NEW_VERSION="$MAJOR.$MINOR.$PATCH"
-          else
-            NEW_VERSION="${CURRENT_VERSION}.1"
-          fi
+          NEW_VERSION=$BASE_VERSION
+          while true; do
+            # Increment patch version (assuming x.y.z format)
+            if [[ $NEW_VERSION =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+              MAJOR=${BASH_REMATCH[1]}
+              MINOR=${BASH_REMATCH[2]}
+              PATCH=${BASH_REMATCH[3]}
+              PATCH=$((PATCH + 1))
+              NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+            else
+              NEW_VERSION="${NEW_VERSION}.1"
+            fi
+            
+            echo "Checking if tag v$NEW_VERSION exists..."
+            if ! git rev-parse "v$NEW_VERSION" >/dev/null 2>&1; then
+              echo "Tag v$NEW_VERSION is available."
+              break
+            fi
+            echo "Tag v$NEW_VERSION already exists, trying next one..."
+          done
           
-          echo "New version: $NEW_VERSION"
+          echo "Final NEW_VERSION: $NEW_VERSION"
           mvn versions:set -DnewVersion=$NEW_VERSION -DgenerateBackupPoms=false
           echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
 
       - name: Commit and Push Version Bump
         run: |
           git add pom.xml
-          git commit -m "chore: release v${{ env.NEW_VERSION }} [skip ci]"
-          git tag v${{ env.NEW_VERSION }}
-          git push origin main --tags
+          # Only commit if there are changes (prevents error on re-runs)
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: release v${{ env.NEW_VERSION }} [skip ci]"
+          fi
+          git pull origin main --rebase
+          git push origin main
+          git tag -f v${{ env.NEW_VERSION }}
+          git push origin --tags --force
 
       - name: Install documentation dependencies
         run: npm ci

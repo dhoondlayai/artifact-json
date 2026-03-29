@@ -5,8 +5,8 @@ If you don't want to deserialize a massive JSON configuration into a POJO, you c
 `JsonProxy` creates a Java interface proxy that reads and writes **directly** to the underlying `JsonObject` map. There is no reflection overhead after proxy creation, no GC allocations for data-binding objects, and memory usage goes way down!
 
 ```java
-import io.dhoondlay.artifact.json.proxy.JsonProxy;
-import io.dhoondlay.artifact.json.annotation.JsonProperty;
+import io.github.dhoondlayai.artifact.json.proxy.JsonProxy;
+import io.github.dhoondlayai.artifact.json.annotation.JsonProperty;
 ```
 
 ## Example Walkthrough

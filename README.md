@@ -1,86 +1,154 @@
-# 💎 artifact-json: Master JSON Utility
+# 💎 artifact-json: Master JSON Utility for Java 21+
 
-A robust, enterprise-grade Java 21+ library for high-speed JSON processing, manipulation, and data transformation.
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.dhoondlayai/artifact-json.svg?label=Maven%20Central)](https://search.maven.org/search?q=g:%22io.github.dhoondlayai%22%20AND%20a:%22artifact-json%22)
+[![Java Version](https://img.shields.io/badge/Java-21+-orange.svg)](https://www.oracle.com/java/technologies/downloads/)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-## 🚀 Key Algorithms & Features
+A robust, enterprise-grade, **zero-dependency** Java 21+ library designed for maximum performance JSON processing, ultra-fast data transformation, and fluent querying.
+
+---
+
+## 🚀 Key Algorithms & Master Features
 
 ### 1. Advanced Traversal Engine (`JsonTraversal`)
+Navigate complex trees with precision and speed.
 - **DFS / BFS Support**: Switch between depth-first and breadth-first search depending on tree density.
-- **Path-Aware Traversal**: Get the exact path (e.g. `order.items[2].id`) for every node visited.
-- **Transformation-on-the-fly**: Transform values or structure during a single pass through the tree.
+- **Path-Aware Traversal**: Capture the exact dot-path (e.g., `order.items[2].id`) for every node.
+- **On-the-fly Transformation**: Modify values or structure during a single pass.
 
-### 2. Flatten & Unflatten
-- **Tabular Conversion**: Flatten deep nested JSON into a single-level Map for CSV export or Spreadsheet processing.
-- **Reconstruction**: Instantly rebuild original complex tree structures from a flat Map.
+### 2. Tabular Flatten & Unflatten
+Bridge the gap between nested JSON and flat data structures (like CSV or SQL).
+- **Dot-Notation Flattening**: Convert `{"a": {"b": 1}}` into `{"a.b": 1}`.
+- **Perfect Reconstruction**: Rebuild original complex trees from flat Maps instantly.
 
-### 3. Fluent Search & Wildcards
-- **Searching**: Search for all occurrences of specific keys or values across the entire tree.
-- **Wildcard Path API**: Find data using patterns like `store.books[*].author`.
-
-### 4. Enterprise Data Mapping
-- **Record Serialization**: Native support for modern Java Records.
-- **Type Adapters**: Custom logic for mapping complex business types.
-- **Deep Diffing**: Compare two JSON states and derive a minimal patch.
-
-### 5. 🔥 Killer Feature: In-Memory SQL for JSON (`JsonQuery`)
-Instead of ugly loops and streams, query JSON Arrays natively like a local database:
+### 3. 🔥 Killer Feature: In-Memory SQL for JSON (`JsonQuery`)
+Query JSON Arrays using a fluent, SQL-like API. No more manual loops or complex Stream filters.
 ```java
-JsonQuery.from(bookArray)
-    .select("title", "price")
-    .whereGt("price", 15.00)
-    .orderBy("price", DESC)
+import static io.github.dhoondlayai.artifact.json.query.JsonQuery.SortOrder.DESC;
+
+var results = JsonQuery.from(orderArray)
+    .select("id", "total", "customer.name")
+    .whereGt("total", 100.00)
+    .andContains("customer.name", "John")
+    .orderBy("total", DESC)
+    .limit(10)
     .execute();
 ```
 
-### 6. 🔥 Killer Feature: Zero-Cost Deserialization (`JsonProxy`)
-Why write and parse into heavy Data Classes? `artifact-json` can back any Java Interface dynamically using a `JsonProxy`.
+### 4. 🔥 Killer Feature: Zero-Cost Deserialization (`JsonProxy`)
+Map JSON to Java Interfaces without the overhead of heavy POJO instantiation or reflection-based mapping.
 ```java
-SystemConfig config = JsonProxy.create(SystemConfig.class, jsonNode);
-config.setTheme("dark"); // Alters the underlying JSON AST instantly!
+public interface UserProfile {
+    String getName();
+    void setName(String name);
+    int getAge();
+}
+
+// Create a proxy that reads/writes directly to the underlying JsonNode
+UserProfile profile = JsonProxy.create(UserProfile.class, jsonNode);
+System.out.println(profile.getName());
+profile.setName("New Name"); // Updates the JSON AST instantly!
 ```
 
-### 7. 🔥 Killer Feature: Reverse Engineering (`JsonCodeGenerator`)
-Tired of manually writing Java Records for massive API responses?
-`JsonCodeGenerator.generateJavaRecords("MyDto", rootNode)` instantly outputs the complete Java `.java` source code for your JSON structures.
+### 5. 🔥 Killer Feature: Reverse Engineering (`JsonCodeGenerator`)
+Generate production-ready Java source code from any JSON sample.
+```java
+// Instantly outputs the complete Java Record source code for your JSON structures
+String javaSource = JsonCodeGenerator.generateJavaRecords("OrderDto", rootNode);
+Files.writeString(Path.of("OrderDto.java"), javaSource);
+```
 
-### 8. Native Formatters
-- **FIX -> JSON**: Direct conversion for Financial Trading logs.
-- **CSV -> JSON**: High-speed tabular processing.
+### 6. Unified Conversion Suite (`JsonConverter`)
+A single entry point for multi-format transformations:
+- **Formats**: JSON ↔ CSV, XML, YAML, Properties, Markdown, HTML Table.
+- **Formatting**: Compact, Pretty-Print (custom indent), and Minified outputs.
 
-## 🥊 Why Choose artifact-json over Jackson?
+### 7. Security & Redaction (`JsonShield`)
+Safely access data and redact PII (Personally Identifiable Information) with ease.
+```java
+JsonShield shield = new JsonShield(rawInput);
 
-Jackson is the gold standard, but it's built on 15-year-old principles (Reflection, `InputStream`, `char[]` buffers). **artifact-json** is built for the 2024+ Java 21 ecosystem.
+// Null-safe access with defaults
+String apiKey = shield.getString("auth.key", "DEMO_KEY");
+
+// Redact sensitive fields at any depth
+JsonNode safeNode = shield.redact("password", "credit_card", "ssn");
+```
+
+---
+
+## 🥊 Why Choose `artifact-json` over Jackson?
+
+Built for the **2024+ Java 21 ecosystem**, `artifact-json` leverages modern JVM features that legacy libraries cannot.
 
 | Feature | Jackson | **artifact-json** ✨ | Performance Impact |
 | :--- | :--- | :--- | :--- |
 | **Parsing Engine** | `Reader`/`char[]` | **Zero-Copy ByteBuffer** | **3x-5x Faster** (Low GC pressure) |
 | **Object Mapping** | Standard Reflection | **MethodHandles (JSR-292)** | **2x-3x Faster** access to POJOs |
-| **Querying** | Streams/Filters | **Built-in `JsonQuery`** | Fluent, SQL-like aggregations |
+| **Querying** | Manual Streams | **Built-in `JsonQuery`** | Fluent, SQL-like aggregations |
 | **Deserialization** | Heavy Bean Mapping| **Zero-Cost `JsonProxy`** | Instant Interface Binding (O(1)) |
-| **Code Generation** | JSONSchema2Pojo | **Built-in Generator** | Instantly create Java Records |
-| **Tree Traversal** | `instanceof` / Casts | **Sealed Type Matching** | Cleaner, compiler-optimized JIT |
-| **Stock Market** | Needs Serializers | **Native FIX/CSV Support** | Instant direct-to-tree conversion |
-| **Self-Healing** | Throws Exception | **Built-in Auto-Correct** | No manual fixing required |
+| **Logic/Safety** | `instanceof` | **Sealed Type Matching** | Cleaner, compiler-optimized JIT |
+| **Advanced Tools** | External Plugins | **Native SQL/Flatten/Redact** | All-in-one powerful toolkit |
 
 ---
 
-## 🏗️ Technical Architecture Details
+## 📦 Installation
 
-| Layer | Optimized For | Component |
-| :--- | :--- | :--- |
-| **Engine** | Throttling/Speed | Non-blocking NIO + FFM API Skeleton |
-| **Model** | Safety/Typing | Sealed Interface `JsonNode` + Records |
-| **Mapping** | Flexibility | `CustomObjectMapper` with `TypeAdapter` |
-| **Utilities** | Manipulation | `JsonTraversal` & `JsonExtensions` |
+Add this dependency to your `pom.xml`. **Zero transitive dependencies.**
 
-## 🛠️ Usage Example
-
-```java
-// Flatten a complex JSON
-Map<String, Object> flatMap = JsonTraversal.flatten(rootNode);
-
-// Perform a wildcard search
-List<JsonNode> authors = extensions.wildcardFind(root, "store.books[*].author");
+```xml
+<dependency>
+    <groupId>io.github.dhoondlayai</groupId>
+    <artifactId>artifact-json</artifactId>
+    <version>2.0.2</version>
+</dependency>
 ```
 
-Run the `ArtifactJsonProjectDemo.java` to see a live demonstration of these features.
+---
+
+## 🏃‍♂️ Quick Start
+
+```java
+import io.github.dhoondlayai.artifact.json.streaming.FastJsonEngine;
+import io.github.dhoondlayai.artifact.json.model.*;
+
+public class Main {
+    public static void main(String[] args) {
+        // 1. High-speed Parsing
+        String json = "{\"brand\": \"Dhoondlay\", \"specs\": {\"cores\": 16, \"ram\": \"64GB\"}}";
+        JsonObject root = FastJsonEngine.parse(json).asObject();
+
+        // 2. Sealed-Type Pattern Matching (Java 21+)
+        switch (root.get("specs")) {
+            case JsonObject obj -> System.out.println("Cores: " + obj.getInt("cores"));
+            case JsonValue val  -> System.out.println("Literal: " + val.asText());
+            default -> {}
+        }
+        
+        // 3. Easy Modification
+        root.put("status", new JsonValue("active"));
+        
+        // 4. Pretty Printing
+        System.out.println(root.toPrettyString(2));
+    }
+}
+```
+
+---
+
+## 🏗️ Technical Architecture
+
+| Layer | Optimized For | Description |
+| :--- | :--- | :--- |
+| **Engine** | Raw Throughput | Hybrid parser using non-blocking NIO and SIMD-friendly loops. |
+| **Model** | Type Safety | Uses Java 21 **Sealed Interfaces** for `JsonNode` hierarchy. |
+| **Query** | Developer Velocity | AST-based query engine for in-memory data filtering. |
+| **Conversion**| Interoperability | Native generators for XML, YAML, and Tabular formats. |
+
+---
+
+## 📝 License
+
+Distributed under the **Apache License, Version 2.0**. See `LICENSE` for more information.
+
+Copyright © 2026 [Dhoondlay AI](https://github.com/dhoondlay)

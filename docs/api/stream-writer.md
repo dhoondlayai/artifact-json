@@ -7,7 +7,7 @@ file streams, or any iterative data source.
 ## Basic Usage
 
 ```java
-import io.dhoondlay.artifact.json.streaming.JsonStreamWriter;
+import io.github.dhoondlayai.artifact.json.streaming.JsonStreamWriter;
 import java.io.*;
 
 // Write to a file (pretty-printed with 2-space indent)

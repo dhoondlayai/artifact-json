@@ -6,7 +6,7 @@ one element at a time — no tree is ever built for the full file.
 ## Basic Usage
 
 ```java
-import io.dhoondlay.artifact.json.streaming.JsonStreamReader;
+import io.github.dhoondlayai.artifact.json.streaming.JsonStreamReader;
 
 // Stream a top-level JSON array of objects
 try (JsonStreamReader reader = new JsonStreamReader(new FileInputStream("1million.json"))) {

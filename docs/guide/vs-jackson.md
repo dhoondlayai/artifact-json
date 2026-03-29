@@ -36,7 +36,7 @@ and it balloons to 5–8 jars. artifact-json ships as a **single sub-500KB jar**
 
 <!-- artifact-json: single jar, zero transitive deps -->
 <dependency>
-    <groupId>io.dhoondlay.artifact</groupId>
+    <groupId>io.github.dhoondlayai.artifact</groupId>
     <artifactId>artifact-json</artifactId>
     <version>2.0.0</version>
 </dependency>

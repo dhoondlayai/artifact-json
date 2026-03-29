@@ -1,4 +1,4 @@
-name: Publish to Maven Central
+name: Unified Release (Maven & Docs)
 
 on:
   push:
@@ -7,9 +7,15 @@ on:
 
 permissions:
   contents: write
+  pages:    write
+  id-token: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
-  publish:
+  release:
     runs-on: ubuntu-latest
     if: github.event_name == 'push'
     steps:
@@ -17,6 +23,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -29,6 +36,12 @@ jobs:
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
           gpg-passphrase: ${{ secrets.GPG_PASSPHRASE }}
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
       - name: Configure Git
         run: |
           git config --global user.name "github-actions[bot]"
@@ -36,13 +49,10 @@ jobs:
 
       - name: Increment Version
         run: |
-          # Get current version from pom.xml
           RAW_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-          # Strip -SNAPSHOT if present
           CURRENT_VERSION=${RAW_VERSION%-SNAPSHOT}
-          echo "Current version (baseline): $CURRENT_VERSION"
+          echo "Current version: $CURRENT_VERSION"
           
-          # Increment patch version (assuming x.y.z format)
           if [[ $CURRENT_VERSION =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
             MAJOR=${BASH_REMATCH[1]}
             MINOR=${BASH_REMATCH[2]}
@@ -50,7 +60,6 @@ jobs:
             PATCH=$((PATCH + 1))
             NEW_VERSION="$MAJOR.$MINOR.$PATCH"
           else
-            echo "Version format not recognized, appending .1"
             NEW_VERSION="${CURRENT_VERSION}.1"
           fi
           
@@ -61,9 +70,20 @@ jobs:
       - name: Commit and Push Version Bump
         run: |
           git add pom.xml
-          git commit -m "chore: bump version to ${{ env.NEW_VERSION }} [skip ci]"
+          git commit -m "chore: release v${{ env.NEW_VERSION }} [skip ci]"
           git tag v${{ env.NEW_VERSION }}
           git push origin main --tags
+
+      - name: Install documentation dependencies
+        run: npm ci
+
+      - name: Build VitePress docs
+        run: npm run docs:build
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/.vitepress/dist
 
       - name: Publish to Maven Central Portal
         run: mvn clean deploy -Prelease -DskipTests -Dgpg.passphrase=${{ secrets.GPG_PASSPHRASE }}
@@ -71,3 +91,14 @@ jobs:
           CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
           CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+
+  deploy-docs:
+    needs: release
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

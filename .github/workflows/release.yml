@@ -31,8 +31,8 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
           server-id: central
-          server-username: ${{ secrets.CENTRAL_USERNAME }}
-          server-password: ${{ secrets.CENTRAL_PASSWORD }}
+          server-username: CENTRAL_USERNAME
+          server-password: CENTRAL_PASSWORD
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
           gpg-passphrase: ${{ secrets.GPG_PASSPHRASE }}
 
@@ -42,19 +42,29 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Configure Git
+      - name: Configure Git and permissions
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git fetch --tags --force
+          chmod +x mvnw
+
 
       - name: Increment Version
+        id: bump_version
         run: |
-          # Get current version from pom.xml
-          RAW_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          # Get current version from pom.xml robustly
+          # We use help:evaluate and filter for the version string format
+          RAW_VERSION=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout | grep -E '^[0-9]+\.[0-9]+\.[0-9]+(-SNAPSHOT)?$' | head -n 1 | tr -d '[:space:]')
+          
+          if [ -z "$RAW_VERSION" ]; then
+            echo "Failed to extract version from pom.xml. Falling back to simple evaluation."
+            RAW_VERSION=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout | tr -d '[:space:]')
+          fi
+          
           # Strip -SNAPSHOT if present
           BASE_VERSION=${RAW_VERSION%-SNAPSHOT}
-          echo "Current version (baseline): $BASE_VERSION"
+          echo "Current version baseline: $BASE_VERSION"
           
           NEW_VERSION=$BASE_VERSION
           while true; do
@@ -78,26 +88,21 @@ jobs:
           done
           
           echo "Final NEW_VERSION: $NEW_VERSION"
-          mvn versions:set -DnewVersion=$NEW_VERSION -DgenerateBackupPoms=false
+          ./mvnw versions:set -DnewVersion=$NEW_VERSION -DgenerateBackupPoms=false
           echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
-      - name: Commit and Push Version Bump
+      - name: Generate Javadoc for Website
         run: |
-          git add pom.xml
-          # Only commit if there are changes (prevents error on re-runs)
-          if ! git diff --cached --quiet; then
-            git commit -m "chore: release v${{ env.NEW_VERSION }} [skip ci]"
-          fi
-          git pull origin main --rebase
-          git push origin main
-          git tag -f v${{ env.NEW_VERSION }}
-          git push origin --tags --force
-
-      - name: Install documentation dependencies
-        run: npm ci
+          ./mvnw javadoc:javadoc -DskipTests
+          # Ensure javadoc directory exists and is in the public folder so VitePress picks it up
+          mkdir -p docs/public/javadoc
+          cp -r docs/javadoc/* docs/public/javadoc/ || true
 
       - name: Build VitePress docs
-        run: npm run docs:build
+        run: |
+          npm ci
+          npm run docs:build
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
@@ -105,19 +110,35 @@ jobs:
           path: docs/.vitepress/dist
 
       - name: Publish to Maven Central Portal
-        run: mvn clean deploy -Prelease -DskipTests -Dgpg.passphrase=${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          ./mvnw clean deploy -Prelease -DskipTests -Dgpg.passphrase="${GPG_PASSPHRASE}" \
+            "-Dgpg.executable=gpg" "-Dgpg.pinentry-mode=loopback"
         env:
           CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
           CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+
+      - name: Commit and Push Version Bump
+        run: |
+          git add pom.xml
+          # Only commit if there are changes
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: release v${{ env.NEW_VERSION }} [skip ci]"
+            # Rebase onto main to avoid conflicts and push
+            git pull origin main --rebase
+            git push origin HEAD:main
+          fi
+          # Tag and push tags separately to ensure they apply to the new commit
+          git tag -f v${{ env.NEW_VERSION }}
+          git push origin --tags --force
 
   deploy-docs:
     needs: release
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+

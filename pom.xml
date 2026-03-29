@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>io.dhoondlay.artifact</groupId>
+    <groupId>io.github.dhoondlayai</groupId>
     <artifactId>artifact-json</artifactId>
     <version>2.0.0</version>
     <packaging>jar</packaging>
@@ -16,6 +16,27 @@
         an in-memory SQL query engine, and 8-format conversion suite.
     </description>
     <url>https://github.com/dhoondlay/artifact-json</url>
+
+    <licenses>
+        <license>
+            <name>The Apache License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <id>dhoondlayai</id>
+            <name>Dhoondlay Creator</name>
+            <email>creator@dhoondlayai.com</email>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:git://github.com/dhoondlay/artifact-json.git</connection>
+        <developerConnection>scm:git:ssh://github.com/dhoondlay/artifact-json.git</developerConnection>
+        <url>https://github.com/dhoondlay/artifact-json</url>
+    </scm>
 
     <properties>
         <maven.compiler.source>21</maven.compiler.source>
@@ -61,6 +82,16 @@
                 </configuration>
             </plugin>
 
+            <!-- Disable standard deploy to let central-publishing handle it -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-deploy-plugin</artifactId>
+                <version>3.1.2</version>
+                <configuration>
+                    <skip>true</skip>
+                </configuration>
+            </plugin>
+
             <!-- Fat JAR -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -69,7 +100,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>io.dhoondlay.artifact.json.ArtifactJsonProjectDemo</mainClass>
+                            <mainClass>io.github.dhoondlayai.artifact.json.ArtifactJsonProjectDemo</mainClass>
                         </manifest>
                     </archive>
                     <descriptorRefs>
@@ -93,15 +124,77 @@
                 <configuration>
                     <outputDirectory>${project.basedir}/docs/javadoc</outputDirectory>
                     <reportOutputDirectory>${project.basedir}/docs/javadoc</reportOutputDirectory>
-                    <additionalparam>--enable-preview</additionalparam>
+                    <additionalOptions>--enable-preview</additionalOptions>
                     <doclint>none</doclint>
                     <show>public</show>
                     <windowtitle>artifact-json 2.0 API</windowtitle>
                     <doctitle>artifact-json 2.0 — High-Performance JSON Library</doctitle>
                     <header><![CDATA[<b>artifact-json 2.0</b>]]></header>
-                    <bottom><![CDATA[Copyright &copy; 2024 dhoondlay.io]]></bottom>
+                    <bottom><![CDATA[Copyright &copy; 2026 json.dhoondlayai.com]]></bottom>
                 </configuration>
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>release</id>
+            <build>
+                <plugins>
+                    <!-- 1. Attach Sources -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-source-plugin</artifactId>
+                        <version>3.3.0</version>
+                        <executions>
+                            <execution>
+                                <id>attach-sources</id>
+                                <goals><goal>jar-no-fork</goal></goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <!-- 2. Attach Javadocs -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <version>3.6.3</version>
+                        <executions>
+                            <execution>
+                                <id>attach-javadocs</id>
+                                <goals><goal>jar</goal></goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <!-- 3. Sign Artifacts with GPG -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <version>3.2.3</version>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <phase>verify</phase>
+                                <goals><goal>sign</goal></goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <!-- 4. Upload to Maven Central Portal -->
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <version>0.4.0</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <publishingServerId>central</publishingServerId>
+                            <tokenAuth>true</tokenAuth>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
 </project>

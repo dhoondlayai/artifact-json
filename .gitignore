@@ -7,9 +7,11 @@ target/
 node_modules/
 docs/.vitepress/dist/
 docs/.vitepress/cache/
+docs/javadoc/
 *.class
 *.jar
-*.war
-*.ear
+*.exe
+*.zip
+*.tar.gz
 *.log
 .DS_Store

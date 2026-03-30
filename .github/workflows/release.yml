@@ -7,7 +7,7 @@ on:
 
 permissions:
   contents: write
-  pages:    write
+  pages: write
   id-token: write
 
 concurrency:
@@ -49,55 +49,57 @@ jobs:
           git fetch --tags --force
           chmod +x mvnw
 
+      - name: Get Current Version
+        id: current_version
+        run: |
+          VERSION=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout 2>/dev/null | tail -n 1 | xargs)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Current version: $VERSION"
 
       - name: Increment Version
         id: bump_version
         run: |
-          # Get current version from pom.xml robustly
-          # We use help:evaluate and filter for the version string format
-          RAW_VERSION=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout | grep -E '^[0-9]+\.[0-9]+\.[0-9]+(-SNAPSHOT)?$' | head -n 1 | tr -d '[:space:]')
+          CURRENT_VERSION=${{ steps.current_version.outputs.version }}
+          echo "Processing version: $CURRENT_VERSION"
           
-          if [ -z "$RAW_VERSION" ]; then
-            echo "Failed to extract version from pom.xml. Falling back to simple evaluation."
-            RAW_VERSION=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout | tr -d '[:space:]')
+          # Strip -SNAPSHOT suffix if present
+          BASE_VERSION=${CURRENT_VERSION%-SNAPSHOT}
+          echo "Base version: $BASE_VERSION"
+          
+          # Parse version components (assuming semantic versioning x.y.z)
+          if [[ $BASE_VERSION =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            MAJOR=${BASH_REMATCH[1]}
+            MINOR=${BASH_REMATCH[2]}
+            PATCH=${BASH_REMATCH[3]}
+            
+            # Increment patch version
+            PATCH=$((PATCH + 1))
+            NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+            echo "Calculated new version: $NEW_VERSION"
+          else
+            echo "ERROR: Version format is invalid. Expected x.y.z, got: $BASE_VERSION"
+            exit 1
           fi
           
-          # Strip -SNAPSHOT if present
-          BASE_VERSION=${RAW_VERSION%-SNAPSHOT}
-          echo "Current version baseline: $BASE_VERSION"
+          # Verify the tag doesn't already exist
+          if git rev-parse "v$NEW_VERSION" >/dev/null 2>&1; then
+            echo "WARNING: Tag v$NEW_VERSION already exists!"
+            exit 1
+          fi
           
-          NEW_VERSION=$BASE_VERSION
-          while true; do
-            # Increment patch version (assuming x.y.z format)
-            if [[ $NEW_VERSION =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
-              MAJOR=${BASH_REMATCH[1]}
-              MINOR=${BASH_REMATCH[2]}
-              PATCH=${BASH_REMATCH[3]}
-              PATCH=$((PATCH + 1))
-              NEW_VERSION="$MAJOR.$MINOR.$PATCH"
-            else
-              NEW_VERSION="${NEW_VERSION}.1"
-            fi
-            
-            echo "Checking if tag v$NEW_VERSION exists..."
-            if ! git rev-parse "v$NEW_VERSION" >/dev/null 2>&1; then
-              echo "Tag v$NEW_VERSION is available."
-              break
-            fi
-            echo "Tag v$NEW_VERSION already exists, trying next one..."
-          done
-          
-          echo "Final NEW_VERSION: $NEW_VERSION"
-          ./mvnw versions:set -DnewVersion=$NEW_VERSION -DgenerateBackupPoms=false
-          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "Version bump successful: $BASE_VERSION -> $NEW_VERSION"
+
+      - name: Update Version in pom.xml
+        run: |
+          ./mvnw versions:set -DnewVersion=${{ steps.bump_version.outputs.version }} -DgenerateBackupPoms=false
+          echo "Updated pom.xml to version: ${{ steps.bump_version.outputs.version }}"
 
       - name: Generate Javadoc for Website
         run: |
           ./mvnw javadoc:javadoc -DskipTests
-          # Ensure javadoc directory exists and is in the public folder so VitePress picks it up
           mkdir -p docs/public/javadoc
-          cp -r docs/javadoc/* docs/public/javadoc/ || true
+          cp -r target/site/apidocs/* docs/public/javadoc/ || true
 
       - name: Build VitePress docs
         run: |
@@ -112,25 +114,29 @@ jobs:
       - name: Publish to Maven Central Portal
         run: |
           ./mvnw clean deploy -Prelease -DskipTests -Dgpg.passphrase="${GPG_PASSPHRASE}" \
-            "-Dgpg.executable=gpg" "-Dgpg.pinentry-mode=loopback"
+            -Dgpg.executable=gpg -Dgpg.pinentry-mode=loopback
         env:
           CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
           CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
-      # - name: Commit and Push Version Bump
-      #   run: |
-      #     git add pom.xml
-      #     # Only commit if there are changes
-      #     if ! git diff --cached --quiet; then
-      #       git commit -m "chore: release v${{ env.NEW_VERSION }} [skip ci]"
-      #       # Rebase onto main to avoid conflicts and push
-      #       git pull origin main --rebase
-      #       git push origin HEAD:main
-      #     fi
-      #     # Tag and push tags separately to ensure they apply to the new commit
-      #     git tag -f v${{ env.NEW_VERSION }}
-      #     git push origin --tags --force
+      - name: Commit and Push Version Bump
+        run: |
+          git add pom.xml
+          # Only commit if there are changes
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: release v${{ steps.bump_version.outputs.version }} [skip ci]"
+            git push origin HEAD:main
+            echo "Committed version bump to main"
+          else
+            echo "No changes to commit"
+          fi
+
+      - name: Create and Push Git Tag
+        run: |
+          git tag -a v${{ steps.bump_version.outputs.version }} -m "Release v${{ steps.bump_version.outputs.version }}"
+          git push origin v${{ steps.bump_version.outputs.version }}
+          echo "Created and pushed tag: v${{ steps.bump_version.outputs.version }}"
 
   deploy-docs:
     needs: release
@@ -141,4 +147,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-

@@ -78,20 +78,9 @@ JsonNode safeNode = shield.redact("password", "credit_card", "ssn");
 
 ---
 
-## 🥊 Why Choose `artifact-json` over Jackson?
-
-Built for the **2024+ Java 21 ecosystem**, `artifact-json` leverages modern JVM features that legacy libraries cannot.
-
-| Feature | Jackson | **artifact-json** ✨ | Performance Impact |
-| :--- | :--- | :--- | :--- |
-| **Parsing Engine** | `Reader`/`char[]` | **Zero-Copy ByteBuffer** | **3x-5x Faster** (Low GC pressure) |
-| **Object Mapping** | Standard Reflection | **MethodHandles (JSR-292)** | **2x-3x Faster** access to POJOs |
-| **Querying** | Manual Streams | **Built-in `JsonQuery`** | Fluent, SQL-like aggregations |
-| **Deserialization** | Heavy Bean Mapping| **Zero-Cost `JsonProxy`** | Instant Interface Binding (O(1)) |
-| **Logic/Safety** | `instanceof` | **Sealed Type Matching** | Cleaner, compiler-optimized JIT |
-| **Advanced Tools** | External Plugins | **Native SQL/Flatten/Redact** | All-in-one powerful toolkit |
 
 ---
+
 
 ## 📦 Installation
 

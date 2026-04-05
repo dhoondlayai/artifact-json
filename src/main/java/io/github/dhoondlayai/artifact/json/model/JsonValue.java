@@ -100,4 +100,8 @@ public record JsonValue(Object value) implements JsonNode {
         }
         return sb.toString();
     }
+    @Override
+    public JsonNode deepCopy() {
+        return new JsonValue(value);
+    }
 }

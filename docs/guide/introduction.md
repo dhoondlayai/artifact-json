@@ -1,6 +1,6 @@
 # Introduction
 
-**artifact-json** is a next-generation JSON processing library designed entirely for modern Java (21+).
+**artifact-json** is a next-generation JSON processing library designed entirely for modern Java (17+).
 
 ## The Philosophy
 

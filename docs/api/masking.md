@@ -1,12 +1,49 @@
 # PII Masking and Data Redaction
 
-Security features run deep in `artifact-json`. If you have enterprise security constraints, GDPR data masking requirements, or HIPAA rules against showing plain-text IDs in logs, the **JsonMasker** combined with **JsonShield** will handle tree-wide data redaction natively!
+`artifact-json` gives you two complementary layers of PII protection:
 
-## JsonMasker
+| Layer | When to use |
+|---|---|
+| **`@PII` annotation** | You own the POJO — mark the field once, it's always masked |
+| **`JsonMasker` / `JsonShield`** | You're working with a raw `JsonNode` tree you don't own a POJO for |
 
-`JsonMasker` accepts a standard masking string (like `****`) and an arbitrary number of sensitive keys. When invoked on a JsonNode, it traverses the *entire* tree (ignoring depth) and automatically redacts any case-insensitive matches. 
+---
 
-Crucially, **the original JSON Tree is never mutated**. It generates a completely new, safe tree.
+## Recommended: `@PII` Annotation
+
+The cleanest way to protect sensitive fields is to annotate them directly on your POJO. `CustomObjectMapper` will auto-mask them on every `.serialize()` call — no extra wiring required.
+
+```java
+public class UserProfile {
+    private String username;
+    private String email;
+
+    @PII
+    private String password;        // → "****"
+
+    @PII("[REDACTED]")
+    private String ssn;             // → "[REDACTED]"
+
+    @PII(mask = "***", audit = true)
+    private String apiToken;        // → "***" and logged to audit trail
+}
+```
+
+```java
+CustomObjectMapper mapper = new CustomObjectMapper();
+JsonNode safeJson = mapper.serialize(userProfile);
+// password, ssn, and apiToken are automatically masked — always
+```
+
+See the full `@PII` reference in [Annotations](./annotations.md#pii--automatic-pii-masking).
+
+---
+
+## Runtime Option: `JsonMasker`
+
+Use `JsonMasker` when you have a `JsonNode` tree at runtime and no POJO — for example, masking a third-party API response before logging it.
+
+`JsonMasker` traverses the **entire** tree (case-insensitive key matching, any depth) and returns a **new, safe tree** — the original is never mutated.
 
 ```java
 import io.github.dhoondlayai.artifact.json.extensions.JsonMasker;
@@ -16,37 +53,46 @@ JsonMasker masker = new JsonMasker("[REDACTED]")
     .addSensitiveKey("ssn")
     .addSensitiveKey("apiToken");
 
-JsonObject basePayload = new JsonObject()
-    .put("user", "dhoondlay")
-    .put("password", "super_secret!")
-    .put("history", new JsonObject().put("ssn", "xxx-xx-xxxx"));
-
-JsonNode safePayload = masker.mask(basePayload);
-
-System.out.println(safePayload);
+JsonNode safePayload = masker.mask(incomingPayload);
 ```
 
-**Output**:
+**Input:**
+```json
+{ "user": "dhoondlay", "password": "super_secret!", "history": { "ssn": "xxx-xx-xxxx" } }
+```
+
+**Output:**
 ```json
 {
   "user": "dhoondlay",
   "password": "[REDACTED]",
-  "history": {
-    "ssn": "[REDACTED]"
-  }
+  "history": { "ssn": "[REDACTED]" }
 }
 ```
 
-## JsonShield for In-Place Shielding
+---
 
-If you're already wrapping a tree in a `JsonShield` for safe-getter defaults, you can redact directly on the internal tree representation and pull out the masked tree using `.redact()`:
+## Runtime Option: `JsonShield.redact()`
+
+If you're already using `JsonShield` for safe dotted-path access, you can redact multiple fields in one varargs call:
 
 ```java
 JsonShield shield = new JsonShield(payloadNode);
 
-// Retrieve safe getters
-String id = shield.getString("user.id", "unknown");
+String userId = shield.getString("user.id", "unknown");  // safe dotted-path read
 
-// Quick-Redact multiple fields as varargs
-JsonNode fullySafeTree = shield.redact("password", "token", "ssn");
+// Redact before logging / forwarding
+JsonNode safe = shield.redact("password", "token", "ssn");
+```
+
+---
+
+## Decision Guide
+
+```
+Do you own a POJO?
+  ├─ YES → use @PII on the field  (compile-time guarantee, always safe)
+  └─ NO  → working with raw JsonNode tree?
+              ├─ Simple masking   → JsonMasker
+              └─ Already using JsonShield → shield.redact(...)
 ```

@@ -14,7 +14,7 @@ Add the single dependency to your `pom.xml`. There are **no transitive dependenc
 </dependency>
 ```
 
-> **Note:** Requires Java 21 or higher.
+> **Note:** Requires Java 17 or higher.
 
 ## Your First JSON Code
 

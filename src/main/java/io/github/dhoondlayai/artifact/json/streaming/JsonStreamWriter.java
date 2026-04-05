@@ -9,7 +9,7 @@ import java.nio.charset.StandardCharsets;
  * <h2>JsonStreamWriter â€” Zero-Allocation Event-Based JSON Writer</h2>
  *
  * <p>
- * A pull-based JSON generator inspired by Jackson's {@code JsonGenerator}.
+ * A high-performance, event-based JSON generator.
  * Writes JSON tokens directly to an {@link OutputStream} or {@link Writer}
  * without building an in-memory
  * {@link io.github.dhoondlayai.artifact.json.model.JsonNode} tree.

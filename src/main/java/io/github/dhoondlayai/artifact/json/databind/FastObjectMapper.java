@@ -12,7 +12,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * <h2>FastObjectMapper â€” High-Performance Serialization</h2>
  *
- * <p>Uses Java 21 {@link MethodHandles} for near-native access speed.
+ * <p>Uses Java 17+ {@link MethodHandles} for near-native access speed.
  * Reflection is typically 2-5x slower than direct access; MethodHandles
  * compile down to native instructions by the JVM, closing that gap.</p>
  *

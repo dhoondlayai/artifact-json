@@ -1,7 +1,7 @@
 # FastJsonEngine — Parser Reference
 
 The heart of artifact-json. A single-pass, zero-copy RFC 8259 compliant JSON parser
-written in 100% pure Java 21.
+written in 100% pure Java 17+.
 
 ## Basic Usage
 
@@ -19,12 +19,10 @@ JsonNode root = FastJsonEngine.parse(inputStream, StandardCharsets.UTF_8);
 ## Parse Results
 
 ```java
-// Type check via sealed hierarchy
-switch (root) {
-    case JsonObject obj -> handleObject(obj);
-    case JsonArray  arr -> handleArray(arr);
-    case JsonValue  val -> handleValue(val);
-}
+// Type check via pattern matching (Java 17+)
+if (root instanceof JsonObject obj) handleObject(obj);
+else if (root instanceof JsonArray arr) handleArray(arr);
+else if (root instanceof JsonValue val) handleValue(val);
 
 // Or use type checks
 if (root.isObject()) { ... }

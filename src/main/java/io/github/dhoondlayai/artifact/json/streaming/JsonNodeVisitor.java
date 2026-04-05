@@ -11,7 +11,7 @@ public interface JsonNodeVisitor<R> {
     R visitValue(JsonValue node);
 
     /**
-     * Entry point using Java 21+ pattern matching.
+     * Entry point using Java 17+ pattern matching.
      */
     default R visit(JsonNode node) {
         if (node instanceof JsonObject obj) return visitObject(obj);

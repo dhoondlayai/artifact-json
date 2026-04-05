@@ -49,6 +49,7 @@ import java.util.*;
 public class CustomObjectMapper {
 
     private final Map<Class<?>, TypeAdapter<?>> adapters = new HashMap<>();
+    private static final int MAX_DEPTH = 100; // Security: prevent DOS via deep recursion
 
     /** Registers a custom {@link TypeAdapter} for the given class. */
     public <T> void registerAdapter(Class<T> clazz, TypeAdapter<T> adapter) {
@@ -70,7 +71,7 @@ public class CustomObjectMapper {
      */
     public JsonNode serialize(Object obj) {
         try {
-            return doSerialize(obj);
+            return doSerialize(obj, 0);
         } catch (JsonMappingException e) {
             throw e;
         } catch (Exception e) {
@@ -79,7 +80,10 @@ public class CustomObjectMapper {
     }
 
     @SuppressWarnings("unchecked")
-    private JsonNode doSerialize(Object obj) throws Exception {
+    private JsonNode doSerialize(Object obj, int depth) throws Exception {
+        if (depth > MAX_DEPTH) {
+            throw new JsonMappingException("Serialization depth exceeded limit of " + MAX_DEPTH + ". Possible circular reference?");
+        }
         if (obj == null)
             return new JsonValue(null);
 
@@ -100,7 +104,7 @@ public class CustomObjectMapper {
         if (obj instanceof Collection<?> coll) {
             JsonArray arr = new JsonArray(coll.size());
             for (Object item : coll)
-                arr.add(doSerialize(item));
+                arr.add(doSerialize(item, depth + 1));
             return arr;
         }
 
@@ -108,7 +112,7 @@ public class CustomObjectMapper {
         if (obj instanceof Map<?, ?> map) {
             JsonObject jsonObj = new JsonObject(map.size());
             for (var entry : map.entrySet()) {
-                jsonObj.put(String.valueOf(entry.getKey()), doSerialize(entry.getValue()));
+                jsonObj.put(String.valueOf(entry.getKey()), doSerialize(entry.getValue(), depth + 1));
             }
             return jsonObj;
         }
@@ -118,19 +122,61 @@ public class CustomObjectMapper {
             int len = Array.getLength(obj);
             JsonArray arr = new JsonArray(len);
             for (int i = 0; i < len; i++)
-                arr.add(doSerialize(Array.get(obj, i)));
+                arr.add(doSerialize(Array.get(obj, i), depth + 1));
             return arr;
         }
 
         // POJO via reflection
         JsonObject jsonObj = new JsonObject();
         JsonNaming naming = clazz.getAnnotation(JsonNaming.class);
+        JsonInclude classInclude = clazz.getAnnotation(JsonInclude.class);
         for (Field field : getAllFields(clazz)) {
             if (field.isAnnotationPresent(JsonIgnore.class))
                 continue;
+            // @JsonWriteOnly: accepted on input, never emitted in output
+            if (field.isAnnotationPresent(JsonWriteOnly.class))
+                continue;
             field.setAccessible(true);
             String key = resolvePropertyName(field, naming);
-            jsonObj.put(key, doSerialize(field.get(obj)));
+            Object rawValue = field.get(obj);
+
+            // @JsonUnwrapped support
+            if (field.isAnnotationPresent(JsonUnwrapped.class) && rawValue != null) {
+                JsonUnwrapped unwrapped = field.getAnnotation(JsonUnwrapped.class);
+                JsonNode unwrappedNode = doSerialize(rawValue, depth + 1);
+                if (unwrappedNode instanceof JsonObject unwrappedObj) {
+                    unwrappedObj.fields().forEach((uk, uv) -> {
+                        jsonObj.put(unwrapped.prefix() + uk + unwrapped.suffix(), uv);
+                    });
+                }
+                continue;
+            }
+
+            JsonNode valueNode;
+            if (field.isAnnotationPresent(PII.class)) {
+                PII pii = field.getAnnotation(PII.class);
+                String maskStr = !pii.mask().equals("****") ? pii.mask()
+                              : !pii.value().isEmpty()       ? pii.value()
+                              : "****";
+                valueNode = new JsonValue(maskStr);
+            } else {
+                valueNode = doSerialize(rawValue, depth + 1);
+            }
+            // @JsonInclude filtering (field-level overrides class-level)
+            JsonInclude inc = field.isAnnotationPresent(JsonInclude.class)
+                    ? field.getAnnotation(JsonInclude.class) : classInclude;
+            if (inc != null && shouldExclude(inc.value(), valueNode, rawValue))
+                continue;
+            jsonObj.put(key, valueNode);
+        }
+        
+        // @JsonVirtual support
+        for (Method method : clazz.getDeclaredMethods()) {
+            if (method.isAnnotationPresent(JsonVirtual.class) && method.getParameterCount() == 0) {
+                method.setAccessible(true);
+                String name = method.getName().startsWith("get") ? method.getName().substring(3) : method.getName();
+                jsonObj.put(name, doSerialize(method.invoke(obj), depth + 1));
+            }
         }
         return jsonObj;
     }
@@ -150,7 +196,7 @@ public class CustomObjectMapper {
      */
     public <T> T deserialize(JsonNode node, Class<T> clazz) {
         try {
-            return doDeserialize(node, clazz);
+            return doDeserialize(node, clazz, 0);
         } catch (JsonMappingException e) {
             throw e;
         } catch (Exception e) {
@@ -160,7 +206,10 @@ public class CustomObjectMapper {
     }
 
     @SuppressWarnings("unchecked")
-    private <T> T doDeserialize(JsonNode node, Class<T> clazz) throws Exception {
+    private <T> T doDeserialize(JsonNode node, Class<T> clazz, int depth) throws Exception {
+        if (depth > MAX_DEPTH) {
+            throw new JsonMappingException("Deserialization depth exceeded limit of " + MAX_DEPTH);
+        }
         if (node instanceof JsonValue val) {
             Object raw = val.value();
             if (raw == null)
@@ -196,22 +245,68 @@ public class CustomObjectMapper {
         for (Field field : getAllFields(clazz)) {
             if (field.isAnnotationPresent(JsonIgnore.class))
                 continue;
+            // Never deserialize PII or ReadOnly fields from the wire
+            if (field.isAnnotationPresent(PII.class) || field.isAnnotationPresent(JsonReadOnly.class))
+                continue;
             field.setAccessible(true);
             String propName = resolvePropertyName(field, naming);
             JsonNode fieldNode = jsonObj.field(propName);
 
+            // @JsonAlias: try alternative names if primary key is absent
+            if (fieldNode == null && field.isAnnotationPresent(JsonAlias.class)) {
+                for (String alias : field.getAnnotation(JsonAlias.class).value()) {
+                    fieldNode = jsonObj.field(alias);
+                    if (fieldNode != null) break;
+                }
+            }
+
+            // @JsonProperty.required check is already here, keeping it for backward compat
             if (fieldNode != null) {
                 try {
-                    field.set(instance, doDeserialize(fieldNode, field.getType()));
+                    Object deserialized = doDeserialize(fieldNode, field.getType(), depth + 1);
+                    field.set(instance, deserialized);
                 } catch (Exception e) {
                     throw new JsonMappingException("Failed to set field", propName, field.getType());
                 }
+            } else if (field.isAnnotationPresent(JsonDefault.class)) {
+                // @JsonDefault: apply fallback value when key is absent
+                String defaultStr = field.getAnnotation(JsonDefault.class).value();
+                try {
+                    field.set(instance, doDeserialize(new JsonValue(coerceDefault(defaultStr, field.getType())), field.getType(), depth + 1));
+                } catch (Exception e) { /* leave field at Java default */ }
             } else if (field.isAnnotationPresent(JsonProperty.class)
                     && field.getAnnotation(JsonProperty.class).required()) {
                 throw new JsonMappingException("Missing required field", propName, field.getType());
             }
+            
+            // @JsonValidate logic
+            if (field.isAnnotationPresent(JsonValidate.class)) {
+                validateField(field, instance, propName);
+            }
         }
         return instance;
+    }
+
+    private void validateField(Field field, Object instance, String propName) throws Exception {
+        JsonValidate v = field.getAnnotation(JsonValidate.class);
+        Object val = field.get(instance);
+        
+        if (v.required() && val == null) {
+            throw new JsonMappingException("Validation failed: field '" + propName + "' is required");
+        }
+        
+        if (val instanceof String s && !v.regex().isEmpty()) {
+            if (!s.matches(v.regex())) {
+                throw new JsonMappingException("Validation failed: field '" + propName + "' does not match regex " + v.regex());
+            }
+        }
+        
+        if (val instanceof Number n) {
+            double d = n.doubleValue();
+            if (d < v.min() || d > v.max()) {
+                throw new JsonMappingException("Validation failed: field '" + propName + "' outside range [" + v.min() + ", " + v.max() + "]");
+            }
+        }
     }
 
     //
@@ -277,5 +372,43 @@ public class CustomObjectMapper {
             c = c.getSuperclass();
         }
         return fields;
+    }
+
+    /**
+     * Returns {@code true} if the field should be excluded based on the
+     * {@link JsonInclude} strategy.
+     */
+    private boolean shouldExclude(JsonInclude.Include strategy, JsonNode node, Object raw) {
+        if (strategy == JsonInclude.Include.NON_NULL) {
+            return node instanceof JsonValue v && v.value() == null;
+        } else if (strategy == JsonInclude.Include.NON_EMPTY) {
+            if (node instanceof JsonValue v && v.value() == null) return true;
+            if (raw instanceof String s) return s.isEmpty();
+            if (raw instanceof Collection<?> c) return c.isEmpty();
+            if (raw instanceof Map<?, ?> m) return m.isEmpty();
+            if (node instanceof JsonArray a) return a.isEmpty();
+            if (node instanceof JsonObject o) return o.isEmpty();
+            return false;
+        } else if (strategy == JsonInclude.Include.NON_DEFAULT) {
+            if (node instanceof JsonValue v) {
+                Object val = v.value();
+                return val == null
+                    || (val instanceof Number n && n.doubleValue() == 0.0)
+                    || (val instanceof Boolean b && !b)
+                    || (val instanceof String s && s.isEmpty());
+            }
+            return false;
+        }
+        return false; // ALWAYS
+    }
+
+    /** Coerce a @JsonDefault string to the field's raw type for the deserializer. */
+    private Object coerceDefault(String value, Class<?> type) {
+        if (type == String.class) return value;
+        if (type == int.class || type == Integer.class) return Integer.parseInt(value);
+        if (type == long.class || type == Long.class) return Long.parseLong(value);
+        if (type == double.class || type == Double.class) return Double.parseDouble(value);
+        if (type == boolean.class || type == Boolean.class) return Boolean.parseBoolean(value);
+        return value;
     }
 }

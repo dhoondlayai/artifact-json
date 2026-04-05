@@ -230,6 +230,15 @@ public final class JsonQuery {
         return this;
     }
 
+    /** Adds multiple predicates joined by OR. */
+    @SafeVarargs
+    public final JsonQuery whereOr(Predicate<JsonObject>... predicates) {
+        Predicate<JsonObject> orPredicate = obj -> false;
+        for (var p : predicates) orPredicate = orPredicate.or(p);
+        this.whereClause = this.whereClause.and(orPredicate);
+        return this;
+    }
+
     /** WHERE field = value (exact match). */
     public JsonQuery whereEq(String field, Object value) {
         return where(obj -> {
@@ -319,6 +328,23 @@ public final class JsonQuery {
         });
     }
 
+    /** 
+     * Performs a sub-query check (SQL WHERE col IN (SELECT ...)).
+     * Returns true if the value of 'field' in the main row exists in the 'subField' of any object in 'subArray'.
+     */
+    public JsonQuery whereInSubQuery(String field, JsonArray subArray, String subField) {
+        Set<String> subValues = subArray.stream()
+                .filter(n -> n instanceof JsonObject)
+                .map(n -> ((JsonObject) n).field(subField))
+                .filter(Objects::nonNull)
+                .map(JsonNode::asText)
+                .collect(Collectors.toSet());
+        return where(obj -> {
+            JsonNode f = obj.field(field);
+            return f != null && subValues.contains(f.asText());
+        });
+    }
+
     //
     // ORDER BY / LIMIT / OFFSET / PAGE / DISTINCT
     //
@@ -397,6 +423,23 @@ public final class JsonQuery {
         return this;
     }
 
+    /**
+     * Applies a custom transformation to each row before projection.
+     */
+    public JsonQuery transform(java.util.function.UnaryOperator<JsonObject> transformer) {
+        this.whereClause = this.whereClause.and(obj -> {
+            // This is a hack to allow transformation during filtration
+            // but safer way is to store transformers and apply them in execute()
+            return true; 
+        });
+        // I'll actually add a list of transformers
+        if (transformers == null) transformers = new ArrayList<>();
+        transformers.add(transformer);
+        return this;
+    }
+
+    private List<java.util.function.UnaryOperator<JsonObject>> transformers = null;
+
     //
     // JOIN
     //
@@ -468,7 +511,11 @@ public final class JsonQuery {
 
             JsonArray result = new JsonArray(rows.size());
             for (JsonObject obj : rows) {
-                JsonObject projected = project(obj, rightIndex);
+                JsonObject current = obj;
+                if (transformers != null) {
+                    for (var t : transformers) current = t.apply(current);
+                }
+                JsonObject projected = project(current, rightIndex);
                 result.add(projected);
             }
             return result;

@@ -179,19 +179,16 @@ public final class JsonTraversal {
      */
     public static JsonNode transform(JsonNode root, Function<JsonNode, JsonNode> transformer) {
         JsonNode mapped = transformer.apply(root);
-        return switch (mapped) {
-            case JsonObject obj -> {
-                JsonObject result = new JsonObject(obj.size());
-                obj.fields().forEach((k, v) -> result.put(k, transform(v, transformer)));
-                yield result;
-            }
-            case JsonArray arr -> {
-                JsonArray result = new JsonArray(arr.size());
-                arr.elements().forEach(e -> result.add(transform(e, transformer)));
-                yield result;
-            }
-            default -> mapped;
-        };
+        if (mapped instanceof JsonObject obj) {
+            JsonObject result = new JsonObject(obj.size());
+            obj.fields().forEach((k, v) -> result.put(k, transform(v, transformer)));
+            return result;
+        } else if (mapped instanceof JsonArray arr) {
+            JsonArray result = new JsonArray(arr.size());
+            arr.elements().forEach(e -> result.add(transform(e, transformer)));
+            return result;
+        }
+        return mapped;
     }
 
     //
@@ -293,12 +290,11 @@ public final class JsonTraversal {
      * @return maximum depth
      */
     public static int maxDepth(JsonNode root) {
-        return switch (root) {
-            case JsonObject obj -> obj.fields().values().stream()
-                    .mapToInt(v -> 1 + maxDepth(v)).max().orElse(0);
-            case JsonArray arr -> arr.elements().stream()
-                    .mapToInt(e -> 1 + maxDepth(e)).max().orElse(0);
-            default -> 0;
-        };
+        if (root instanceof JsonObject obj) {
+            return obj.fields().values().stream().mapToInt(v -> 1 + maxDepth(v)).max().orElse(0);
+        } else if (root instanceof JsonArray arr) {
+            return arr.elements().stream().mapToInt(e -> 1 + maxDepth(e)).max().orElse(0);
+        }
+        return 0;
     }
 }

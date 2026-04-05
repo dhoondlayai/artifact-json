@@ -61,4 +61,3 @@ features:
   <h2>Why Choose artifact-json?</h2>
   <p>Built for the 2026+ Java ecosystem, <strong>artifact-json</strong> leverages modern JVM features like <em>Sealed Interfaces</em>, <em>MethodHandles</em>, and <em>SIMD-friendly loops</em> to deliver performance that legacy libraries cannot match.</p>
 </div>
-

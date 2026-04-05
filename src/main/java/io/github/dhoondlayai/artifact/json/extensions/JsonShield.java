@@ -153,23 +153,20 @@ public class JsonShield {
     }
 
     private JsonNode redactNode(JsonNode node, java.util.Set<String> keys) {
-        return switch (node) {
-            case JsonObject obj -> {
-                JsonObject result = new JsonObject(obj.size());
-                obj.fields().forEach((k, v) -> {
-                    if (keys.contains(k.toLowerCase()))
-                        result.put(k, new JsonValue("[REDACTED]"));
-                    else
-                        result.put(k, redactNode(v, keys));
-                });
-                yield result;
-            }
-            case JsonArray arr -> {
-                JsonArray result = new JsonArray(arr.size());
-                arr.elements().forEach(e -> result.add(redactNode(e, keys)));
-                yield result;
-            }
-            default -> node;
-        };
+        if (node instanceof JsonObject obj) {
+            JsonObject result = new JsonObject(obj.size());
+            obj.fields().forEach((k, v) -> {
+                if (keys.contains(k.toLowerCase()))
+                    result.put(k, new JsonValue("[REDACTED]"));
+                else
+                    result.put(k, redactNode(v, keys));
+            });
+            return result;
+        } else if (node instanceof JsonArray arr) {
+            JsonArray result = new JsonArray(arr.size());
+            arr.elements().forEach(e -> result.add(redactNode(e, keys)));
+            return result;
+        }
+        return node;
     }
 }

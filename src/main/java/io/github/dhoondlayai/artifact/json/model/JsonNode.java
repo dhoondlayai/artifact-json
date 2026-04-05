@@ -14,8 +14,7 @@ import java.util.Optional;
  * interface.
  * </p>
  *
- * <p>
- * Uses Java 21+ sealed hierarchy + pattern matching for safe, zero-cast access.
+ * Uses Java 17+ sealed hierarchy + pattern matching for safe, zero-cast access.
  * </p>
  *
  * <h3>Type Hierarchy:</h3>
@@ -128,10 +127,10 @@ public sealed interface JsonNode permits JsonObject, JsonArray, JsonValue {
      * For {@code null} values returns {@code "null"}.
      */
     default String asText() {
-        return switch (this) {
-            case JsonValue v -> v.value() == null ? "null" : String.valueOf(v.value());
-            default -> toString();
-        };
+        if (this instanceof JsonValue v) {
+            return v.value() == null ? "null" : String.valueOf(v.value());
+        }
+        return toString();
     }
 
     /**
@@ -307,12 +306,15 @@ public sealed interface JsonNode permits JsonObject, JsonArray, JsonValue {
      * </ul>
      */
     default int size() {
-        return switch (this) {
-            case JsonObject obj -> obj.size();
-            case JsonArray arr -> arr.size();
-            default -> 1;
-        };
+        if (this instanceof JsonObject obj) return obj.size();
+        if (this instanceof JsonArray arr) return arr.size();
+        return 1;
     }
+
+    /**
+     * Returns a deep copy of this node and all its children.
+     */
+    JsonNode deepCopy();
 
     /**
      * Returns the canonical JSON string representation of this node.

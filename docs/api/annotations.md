@@ -1,67 +1,59 @@
-# Annotations (@JsonProperty, @JsonIgnore, etc.)
+# Pro-Level Annotations
 
-artifact-json's mapper suite supports three native annotations for guiding Java POJO Serialization and Deserialization. These annotations require the `CustomObjectMapper` to take effect.
+Artifact-JSON provides a set of powerful annotations to control serialization and deserialization without writing complex boilerplate.
 
-```java
-import io.github.dhoondlayai.artifact.json.databind.CustomObjectMapper;
-```
-
-## @JsonProperty
-
-Allows you to override the JSON key name associated with a Java property, and optionally enforcing required data validation.
+## @JsonUnwrapped
+Flatten a nested object's fields into the parent.
 
 ```java
-public class User {
-    // Will be serialized as {"fullName": "..."} instead of "name"
-    @JsonProperty("fullName")
+public class Profile {
     private String name;
-
-    // Forces CustomObjectMapper to throw JsonMappingException if the 
-    // JSON response does not contain an "email" key
-    @JsonProperty(value = "email", required = true)
-    private String email; 
+    
+    @JsonUnwrapped(prefix = "addr_")
+    private Address location;
 }
+
+// Result: {"name": "John", "addr_city": "NY", "addr_zip": "10001"}
 ```
 
-## @JsonIgnore
-
-Prevents a field from **ever** being serialized or deserialized. Excellent for passwords, transient internal flags, or computed caching values.
+## @JsonVirtual
+Include the output of a method as a JSON field.
 
 ```java
-public class SecurityProfile {
+public class ShoppingCart {
+    private double itemPrice;
+    private int quantity;
+
+    @JsonVirtual("final_total")
+    public double getTotal() {
+        return itemPrice * quantity;
+    }
+}
+
+// Result: {"itemPrice": 10.5, "quantity": 2, "final_total": 21.0}
+```
+
+## @JsonValidate
+Enforce constraints on fields during deserialization.
+
+```java
+public class SignupRequest {
+    @JsonValidate(required = true, regex = "^[A-Za-z0-9]+$")
     private String username;
 
-    @JsonIgnore
-    private String hashPswd;   // This will never appear in JSON
+    @JsonValidate(min = 1, max = 500)
+    private int stockCount;
 }
+
+// If schema is violated, CustomObjectMapper throws JsonMappingException.
 ```
 
-## @JsonNaming (Class Level)
-
-Applies a universal naming strategy to **all** properties inside the class simultaneously. It eliminates the need to attach `@JsonProperty` individually to every single field!
-
-```java
-import io.github.dhoondlayai.artifact.json.annotation.JsonNaming;
-
-@JsonNaming(JsonNaming.NamingStrategy.SNAKE_CASE)
-public class StripePaymentResponse {
-    
-    // Will translate to "payment_id"
-    private String paymentId;       
-    
-    // Will translate to "customer_identity_token"
-    private String customerIdentityToken; 
-
-    // Can still override strategies when needed
-    @JsonProperty("amount_cents")
-    private int amount;
-}
-```
-
-### Strategy Types:
-| Strategy | Java Field | JSON Output |
-|----------|------------|-------------|
-| `CAMEL_CASE` (Default) | `myPropName` | `"myPropName"` |
-| `SNAKE_CASE` | `myPropName` | `"my_prop_name"` |
-| `KEBAB_CASE` | `myPropName` | `"my-prop-name"` |
-| `PASCAL_CASE`| `myPropName` | `"MyPropName"` |
+## Other Supported Annotations
+- `JsonProperty`: Renaming fields.
+- `JsonIgnore`: Hiding fields.
+- `JsonInclude`: Controlling null/empty serialization.
+- `JsonNaming`: Class-level strategies (Snake Case, etc.).
+- `PII`: Masking sensitive data.
+- `JsonDefault`: Fallback values for missing JSON keys.
+- `JsonReadOnly` / `JsonWriteOnly`: Access control.
+- `JsonAlias`: Alternate names for deserialization.

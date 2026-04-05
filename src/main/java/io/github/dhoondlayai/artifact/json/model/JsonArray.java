@@ -14,7 +14,7 @@ import java.util.stream.Stream;
  * Java Stream API support including parallel processing for large datasets.
  * </p>
  *
- * <h3>Why faster than Jackson / org.json?</h3>
+ * <h3>Enterprise Performance Advantages:</h3>
  * <ul>
  * <li>Sealed type hierarchy â€” JVM can devirtualize method calls</li>
  * <li>No ObjectMapper or schema needed â€” direct tree access</li>
@@ -391,8 +391,8 @@ public final class JsonArray implements JsonNode, Iterable<JsonNode> {
     }
 
     /**
-     * Converts this array to a {@link List} of raw Java values (only works for
-     * leaf-level {@link JsonValue} arrays).
+     * Converts this array to a {@link List} of raw Java values.
+     * Leaf {@link JsonValue} elements are unwrapped; nested nodes are kept as-is.
      *
      * @return list of raw values
      */
@@ -400,6 +400,126 @@ public final class JsonArray implements JsonNode, Iterable<JsonNode> {
         return data.stream()
                 .map(n -> (n instanceof JsonValue v) ? v.value() : n)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Converts this array to a typed {@link List} by applying a mapper to each element.
+     *
+     * <pre>{@code
+     * List<String> names = users.toList(n -> ((JsonObject) n).getString("name").orElse(""));
+     * // ["Alice", "Bob", "Charlie"]
+     * }</pre>
+     *
+     * @param mapper function from {@link JsonNode} to target type
+     * @param <T>    the target element type
+     * @return typed list
+     */
+    public <T> List<T> toList(Function<JsonNode, T> mapper) {
+        return data.stream().map(mapper).collect(Collectors.toList());
+    }
+
+    /**
+     * Converts this array to a {@link Set}, removing duplicates by JSON string equality.
+     * Useful when you loaded a JSON array that may have duplicates.
+     *
+     * <pre>{@code
+     * JsonArray tags = FastJsonEngine.parse("[\"java\",\"json\",\"java\"]").asArray();
+     * Set<Object> unique = tags.toSet();
+     * // {"java", "json"}
+     * }</pre>
+     *
+     * @return {@link LinkedHashSet} preserving original order, duplicates removed
+     */
+    public Set<Object> toSet() {
+        return data.stream()
+                .map(n -> (n instanceof JsonValue v) ? v.value() : n)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    /**
+     * Converts this array to a typed {@link Set} using a mapper function.
+     *
+     * <pre>{@code
+     * Set<String> roles = users.toSet(n -> ((JsonObject) n).getString("role").orElse(""));
+     * // {"admin", "user", "moderator"}
+     * }</pre>
+     *
+     * @param mapper function from {@link JsonNode} to target type
+     * @param <T>    target element type
+     * @return {@link LinkedHashSet} of mapped values
+     */
+    public <T> Set<T> toSet(Function<JsonNode, T> mapper) {
+        return data.stream().map(mapper).collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    /**
+     * Extracts the string value of a given field from every {@link JsonObject} element
+     * and returns them as a {@link List}&lt;String&gt;. Null or missing values are excluded.
+     *
+     * <pre>{@code
+     * List<String> emails = users.toStringList("email");
+     * // ["alice@example.com", "bob@example.com"]
+     * }</pre>
+     *
+     * @param field the field name to pluck
+     * @return list of non-null string values
+     */
+    public List<String> toStringList(String field) {
+        return data.stream()
+                .filter(n -> n instanceof JsonObject)
+                .map(n -> ((JsonObject) n).getString(field).orElse(null))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Converts this array of {@link JsonObject} elements into a {@link Map},
+     * using one field as the key and another as the value.
+     *
+     * <pre>{@code
+     * // [{"id": "u1", "name": "Alice"}, {"id": "u2", "name": "Bob"}]
+     * Map<String, String> idToName = users.toMap("id", "name");
+     * // {"u1" -> "Alice", "u2" -> "Bob"}
+     * }</pre>
+     *
+     * @param keyField   field whose string value becomes the map key
+     * @param valueField field whose string value becomes the map value
+     * @return {@link LinkedHashMap} of key → value strings
+     */
+    public Map<String, String> toMap(String keyField, String valueField) {
+        Map<String, String> result = new LinkedHashMap<>();
+        for (JsonNode n : data) {
+            if (n instanceof JsonObject obj) {
+                String k = obj.getString(keyField).orElse(null);
+                String v = obj.getString(valueField).orElse(null);
+                if (k != null)
+                    result.put(k, v);
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Converts this array of {@link JsonObject} elements into a
+     * {@code Map<String, JsonObject>} indexed by the given key field.
+     * Useful for O(1) lookup of objects by ID.
+     *
+     * <pre>{@code
+     * Map<String, JsonObject> byId = products.toIndexMap("id");
+     * JsonObject product = byId.get("prod-001");
+     * }</pre>
+     *
+     * @param keyField field to use as the map key
+     * @return {@link LinkedHashMap} of key → {@link JsonObject}
+     */
+    public Map<String, JsonObject> toIndexMap(String keyField) {
+        Map<String, JsonObject> result = new LinkedHashMap<>();
+        for (JsonNode n : data) {
+            if (n instanceof JsonObject obj) {
+                obj.getString(keyField).ifPresent(k -> result.put(k, obj));
+            }
+        }
+        return result;
     }
 
     //
@@ -478,6 +598,32 @@ public final class JsonArray implements JsonNode, Iterable<JsonNode> {
             sb.append(data.get(i));
         }
         return sb.append(']').toString();
+    }
+
+    /**
+     * Returns a deep copy of this array and all its elements.
+     */
+    @Override
+    public JsonArray deepCopy() {
+        JsonArray copy = new JsonArray(data.size());
+        data.forEach(n -> copy.add(n.deepCopy()));
+        return copy;
+    }
+
+    /**
+     * Splits this array into a list of smaller arrays of the given size.
+     */
+    public List<JsonArray> chunk(int size) {
+        List<JsonArray> chunks = new ArrayList<>();
+        for (int i = 0; i < data.size(); i += size) {
+            JsonArray chunk = new JsonArray();
+            int end = Math.min(i + size, data.size());
+            for (int j = i; j < end; j++) {
+                chunk.add(data.get(j));
+            }
+            chunks.add(chunk);
+        }
+        return chunks;
     }
 
     /** Returns a pretty-printed JSON string. */

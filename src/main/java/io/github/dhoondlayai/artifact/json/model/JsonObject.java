@@ -22,7 +22,7 @@ import java.util.stream.Stream;
  * are fully Stream-API compatible.
  * </p>
  *
- * <h3>Performance advantages over Jackson / org.json:</h3>
+ * <h3>Core Performance Advantages:</h3>
  * <ul>
  * <li>No schema pre-compilation required</li>
  * <li>Sealed type hierarchy enables JIT devirtualization</li>
@@ -164,13 +164,22 @@ public final class JsonObject implements JsonNode {
     /**
      * Deep-merges another {@link JsonObject} into this one.
      * Fields in {@code other} override fields in {@code this}.
-     * Nested objects are merged recursively. Arrays are concatenated.
-     *
+     * Nested objects are merged recursively. 
+     * 
      * @param other the object to merge in
-     * @return a new merged {@link JsonObject}
+     * @return {@code this} for chaining
      */
     public JsonObject merge(JsonObject other) {
-        return (JsonObject) JsonMerger.deepMerge(this, other);
+        if (other == null) return this;
+        other.data.forEach((k, v) -> {
+            JsonNode existing = data.get(k);
+            if (v instanceof JsonObject otherObj && existing instanceof JsonObject thisObj) {
+                thisObj.merge(otherObj);
+            } else {
+                data.put(k, v.deepCopy());
+            }
+        });
+        return this;
     }
 
     /** Removes all fields. Returns {@code this}. */
@@ -403,6 +412,24 @@ public final class JsonObject implements JsonNode {
         }
         sb.append('\n').append(closePad).append('}');
         return sb.toString();
+    }
+
+    /**
+     * Returns a deep copy of this object.
+     */
+    @Override
+    public JsonObject deepCopy() {
+        JsonObject copy = new JsonObject(data.size());
+        data.forEach((k, v) -> copy.put(k, v.deepCopy()));
+        return copy;
+    }
+
+    /**
+     * Removes all fields that do not match the given predicate.
+     */
+    public JsonObject filter(java.util.function.Predicate<Map.Entry<String, JsonNode>> predicate) {
+        data.entrySet().removeIf(e -> !predicate.test(e));
+        return this;
     }
 
     private static String escapeString(String s) {

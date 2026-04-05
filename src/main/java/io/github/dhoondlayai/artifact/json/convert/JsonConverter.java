@@ -2,7 +2,6 @@ package io.github.dhoondlayai.artifact.json.convert;
 
 import io.github.dhoondlayai.artifact.json.exception.JsonConversionException;
 import io.github.dhoondlayai.artifact.json.model.*;
-import io.github.dhoondlayai.artifact.json.streaming.FastJsonEngine;
 
 import java.util.*;
 
@@ -74,11 +73,9 @@ public final class JsonConverter {
      * @param indent number of spaces per indentation level
      */
     public static String toPrettyString(JsonNode node, int indent) {
-        return switch (node) {
-            case JsonObject obj -> obj.toPrettyString(indent);
-            case JsonArray arr -> arr.toPrettyString(indent);
-            default -> node.toString();
-        };
+        if (node instanceof JsonObject obj) return obj.toPrettyString(indent);
+        if (node instanceof JsonArray arr) return arr.toPrettyString(indent);
+        return node.toString();
     }
 
     /**
@@ -262,22 +259,18 @@ public final class JsonConverter {
 
     private static void nodeToXml(StringBuilder sb, JsonNode node, String tag, int depth) {
         String indent = "  ".repeat(depth);
-        switch (node) {
-            case JsonObject obj -> {
-                sb.append(indent).append('<').append(xmlTag(tag)).append(">\n");
-                obj.fields().forEach((k, v) -> nodeToXml(sb, v, k, depth + 1));
-                sb.append(indent).append("</").append(xmlTag(tag)).append(">\n");
+        if (node instanceof JsonObject obj) {
+            sb.append(indent).append('<').append(xmlTag(tag)).append(">\n");
+            obj.fields().forEach((k, v) -> nodeToXml(sb, v, k, depth + 1));
+            sb.append(indent).append("</").append(xmlTag(tag)).append(">\n");
+        } else if (node instanceof JsonArray arr) {
+            for (JsonNode elem : arr) {
+                nodeToXml(sb, elem, tag, depth);
             }
-            case JsonArray arr -> {
-                for (JsonNode elem : arr) {
-                    nodeToXml(sb, elem, tag, depth);
-                }
-            }
-            case JsonValue val -> {
-                sb.append(indent).append('<').append(xmlTag(tag)).append('>')
-                        .append(xmlEscape(val.asText()))
-                        .append("</").append(xmlTag(tag)).append(">\n");
-            }
+        } else if (node instanceof JsonValue val) {
+            sb.append(indent).append('<').append(xmlTag(tag)).append('>')
+                    .append(xmlEscape(val.asText()))
+                    .append("</").append(xmlTag(tag)).append(">\n");
         }
     }
 
@@ -307,32 +300,30 @@ public final class JsonConverter {
 
     private static void nodeToYaml(StringBuilder sb, JsonNode node, int depth, boolean inline) {
         String pad = "  ".repeat(depth);
-        switch (node) {
-            case JsonObject obj -> {
-                if (inline)
-                    sb.append('\n');
-                obj.fields().forEach((k, v) -> {
-                    sb.append(pad).append(yamlKey(k)).append(": ");
-                    if (v instanceof JsonValue val) {
-                        sb.append(yamlScalar(val)).append('\n');
-                    } else {
-                        nodeToYaml(sb, v, depth + 1, true);
-                    }
-                });
-            }
-            case JsonArray arr -> {
-                if (inline)
-                    sb.append('\n');
-                for (JsonNode elem : arr) {
-                    sb.append(pad).append("- ");
-                    if (elem instanceof JsonValue val) {
-                        sb.append(yamlScalar(val)).append('\n');
-                    } else {
-                        nodeToYaml(sb, elem, depth + 1, true);
-                    }
+        if (node instanceof JsonObject obj) {
+            if (inline)
+                sb.append('\n');
+            obj.fields().forEach((k, v) -> {
+                sb.append(pad).append(yamlKey(k)).append(": ");
+                if (v instanceof JsonValue val) {
+                    sb.append(yamlScalar(val)).append('\n');
+                } else {
+                    nodeToYaml(sb, v, depth + 1, true);
+                }
+            });
+        } else if (node instanceof JsonArray arr) {
+            if (inline)
+                sb.append('\n');
+            for (JsonNode elem : arr) {
+                sb.append(pad).append("- ");
+                if (elem instanceof JsonValue val) {
+                    sb.append(yamlScalar(val)).append('\n');
+                } else {
+                    nodeToYaml(sb, elem, depth + 1, true);
                 }
             }
-            case JsonValue val -> sb.append(yamlScalar(val)).append('\n');
+        } else if (node instanceof JsonValue val) {
+            sb.append(yamlScalar(val)).append('\n');
         }
     }
 
@@ -376,19 +367,16 @@ public final class JsonConverter {
     }
 
     private static void flattenToProperties(StringBuilder sb, JsonNode node, String prefix) {
-        switch (node) {
-            case JsonObject obj ->
-                obj.fields().forEach((k, v) -> flattenToProperties(sb, v, prefix.isEmpty() ? k : prefix + "." + k));
-            case JsonArray arr -> {
-                int[] i = { 0 };
-                arr.stream().forEach(e -> flattenToProperties(sb, e, prefix + "." + i[0]++));
-            }
-            case JsonValue val -> {
-                sb.append(prefix).append('=');
-                if (val.value() != null)
-                    sb.append(val.value().toString().replace("\\", "\\\\"));
-                sb.append('\n');
-            }
+        if (node instanceof JsonObject obj) {
+            obj.fields().forEach((k, v) -> flattenToProperties(sb, v, prefix.isEmpty() ? k : prefix + "." + k));
+        } else if (node instanceof JsonArray arr) {
+            int[] i = { 0 };
+            arr.stream().forEach(e -> flattenToProperties(sb, e, prefix + "." + i[0]++));
+        } else if (node instanceof JsonValue val) {
+            sb.append(prefix).append('=');
+            if (val.value() != null)
+                sb.append(val.value().toString().replace("\\", "\\\\"));
+            sb.append('\n');
         }
     }
 

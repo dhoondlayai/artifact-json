@@ -86,6 +86,8 @@ public class CustomObjectMapper {
         }
         if (obj == null)
             return new JsonValue(null);
+        if (obj instanceof JsonNode node)
+            return node;
 
         Class<?> clazz = obj.getClass();
 
@@ -210,6 +212,14 @@ public class CustomObjectMapper {
         if (depth > MAX_DEPTH) {
             throw new JsonMappingException("Deserialization depth exceeded limit of " + MAX_DEPTH);
         }
+        if (node == null) return null;
+
+        // Custom adapter
+        if (adapters.containsKey(clazz)) {
+            TypeAdapter<T> adapter = (TypeAdapter<T>) adapters.get(clazz);
+            return adapter.fromJson(node);
+        }
+
         if (node instanceof JsonValue val) {
             Object raw = val.value();
             if (raw == null)
@@ -226,6 +236,28 @@ public class CustomObjectMapper {
             if (clazz == boolean.class || clazz == Boolean.class)
                 return (T) (Boolean) raw;
             return clazz.cast(raw);
+        }
+
+        if (node instanceof JsonArray arr) {
+            if (clazz.isArray()) {
+                Class<?> component = clazz.getComponentType();
+                Object outArr = Array.newInstance(component, arr.size());
+                for (int i=0; i<arr.size(); i++) Array.set(outArr, i, doDeserialize(arr.element(i), component, depth + 1));
+                return (T) outArr;
+            }
+            if (Collection.class.isAssignableFrom(clazz)) {
+                Collection<Object> coll = Set.class.isAssignableFrom(clazz) ? new HashSet<>() : new ArrayList<>();
+                for (JsonNode item : arr) coll.add(doDeserialize(item, Object.class, depth + 1));
+                return (T) coll;
+            }
+        }
+        
+        if (Map.class.isAssignableFrom(clazz) && node instanceof JsonObject obj) {
+            Map<String, Object> map = new HashMap<>();
+            obj.fields().forEach((k, v) -> {
+                try { map.put(k, doDeserialize(v, Object.class, depth + 1)); } catch (Exception e) {}
+            });
+            return (T) map;
         }
 
         if (!(node instanceof JsonObject jsonObj)) {

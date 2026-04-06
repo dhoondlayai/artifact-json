@@ -216,6 +216,11 @@ public final class JsonObject implements JsonNode {
         return data.containsKey(key);
     }
 
+    /** Alias for {@link #contains(String)} — familiar {@code Map}-style naming. */
+    public boolean containsKey(String key) {
+        return data.containsKey(key);
+    }
+
     /** Returns the number of fields in this object. */
     @Override
     public int size() {
